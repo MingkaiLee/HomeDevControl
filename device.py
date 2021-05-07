@@ -3,8 +3,10 @@ import numpy as np
 import pandas as pd
 import sys
 
+path = "/Users/limingkai/vsCode/Python_WorkSpace/HomeDevControl"
+
 from pandas.core.series import Series
-sys.path.append('D:\house app\物联网\lmk\IoTLab\myframe.py')
+sys.path.append(path)
 from myframe import MyFrame
 
 
