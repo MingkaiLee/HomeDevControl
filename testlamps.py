@@ -56,18 +56,48 @@ async def turnOff(ser:serial.Serial, lamps:list):
     await task2
     await task3
 
+async def main(ser:serial.Serial, lamps:list):
+    lamp_num = len(lamps_list)
+    queue = asyncio.Queue()
+    for i in range(lamp_num):
+        ddt = 300*(lamp_num-1) - 300*i
+        drt = 10*i
+        lamp = lamps[i]
+        frame = lamp.generateWriteFrame(switch=0, luminance=90, ct=64, ddt=ddt, drt=drt)
+        queue.put_nowait(frame)
+    for i in range(lamp_num):
+        ddt = 1000+300*(lamp_num-1) - 300*i
+        drt = 10*i
+        lamp = lamps[i]
+        frame = lamp.generateWriteFrame(switch=1, luminance=90, ct=64, ddt=ddt, drt=drt)
+        queue.put_nowait(frame)
+    started_at = time.monotonic()
+    while not queue.empty():
+        frame = await queue.get()
+        ser.write(bytes.fromhex(frame.toBytes()))
+        await asyncio.sleep(0.3)
+        print(ser.read(13))
+        queue.task_done()
+    await queue.join()
+    total_recvtime = time.monotonic() - started_at
+    print(f'total_recvtime:{total_recvtime:.2f}')
+
 if __name__ == '__main__':
-    port_name = 'COM3'
+    port_name = 'COM4'
     ser = serial.Serial(port_name)
     if not ser.isOpen():
         ser.open()
     lamps_list = []
-    for i in range(17, 21):
+    for i in range(11, 26):
         lamps_list.append(Lamp(i, i))
     
+    """
     asyncio.run(turnOff(ser, lamps_list))
     time.sleep(1)
     asyncio.run(turnOn(ser, lamps_list))
+    """
+
+    asyncio.run(main(ser, lamps_list))
 
     """
     for lamp in lamps_list:

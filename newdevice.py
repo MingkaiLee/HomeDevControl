@@ -146,7 +146,7 @@ class Lamp(Device):
         self._lastCall = MyFrame(head, cmd, data)
         return super().generateCallFrame()
     
-    def generateWriteFrame(self, switch=None, luminance=None, ct=None, vt=0, ddt=0, drt=0) -> str:
+    def generateWriteFrame(self, switch=None, luminance=None, ct=None, vt=0, ddt=0, drt=0) -> MyFrame:
         """
         ### 生成修改灯具状态的命令帧
         注: 预期在值为None时进行保持, 还未实现, 目前需填入所有参数
@@ -165,7 +165,6 @@ class Lamp(Device):
         data = super().getDevAddr() + ' 01 10 00 00 00 06 0c'
         for item in [switch, luminance, ct, vt, ddt, drt]:
             data += ' ' + super().getWordStr(item)
-        print(data)
         self._lastWrite = MyFrame(head, cmd, data)
         return self._lastWrite
     
@@ -183,4 +182,33 @@ class Curtain(Device):
         self._lastWriteRes = None
         self._lastWriteResTime = None
 
+    def generateCloseFrame(self) -> MyFrame:
+        """
+        ### 生成窗帘关闭的命令帧
+        #### Returns:
+        - _lastWrite: 最新发送的修改命令
+        """
+        head = 'fe'
+        cmd = '24 5f'
+        data = super().getDevAddr() + ' 01 06 11 03 00 01 00 00'
+        self._lastWrite = MyFrame(head, cmd, data)
+        return self._lastWrite
+
+    def generateWriteFrame(self, degree, ddt, drt) -> MyFrame:
+        """
+        ### 生成控制窗帘开度的命令帧
+        #### Parameters:
+        - degree: 开度
+        - ddt: 延迟执行时间
+        - drt: 延迟回复时间
+        #### Returns:
+        - _lastWrite: 最新发送的修改命令
+        """
+        head = 'fe'
+        cmd = '24 5f'
+        data = super().getDevAddr() + ' 01 10 00 07 00 03 06'
+        for item in [ddt, drt, degree]:
+            data += ' ' + super().getWordStr(item)
+        self._lastWrite = MyFrame(head, cmd, data)
+        return self._lastWrite
         
