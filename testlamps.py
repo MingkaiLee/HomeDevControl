@@ -7,7 +7,8 @@ import serial
 import sys
 import time
 import asyncio
-sys.path.append('D:\house app\物联网\lmk\IoTLab')
+path = '/Users/limingkai/vsCode/Python_WorkSpace/HomeDevControl'
+sys.path.append(path)
 from myframe import MyFrame
 from newdevice import Lamp
 DEV_ADDR = range(11, 27)
