@@ -7,7 +7,8 @@ import serial
 import sys
 import time
 import asyncio
-path = '/Users/limingkai/vsCode/Python_WorkSpace/HomeDevControl'
+# path = '/Users/limingkai/vsCode/Python_WorkSpace/HomeDevControl'
+path = 'D:\house app\物联网\lmk\IoTLab'
 sys.path.append(path)
 from myframe import MyFrame
 from newdevice import Lamp
