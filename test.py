@@ -187,3 +187,21 @@ make_element('item', 'Albatross', size='large', quantity=6)
 # Creates '<p>&lt;spam&gt;</p>'
 make_element('p', '<spam>')
 # %%
+x = bytes.fromhex('fe 0a 24 5f d0 07 01 06 15 00 00 01 4c 06 9f')
+print(x.hex()[8:-2])
+# %%
+class Foo:
+    def __init__(self, func) -> None:
+        self._func = func
+    
+    def __call__(self, *args, **kwds):
+        print(1)
+        self._func()
+        print(2)
+
+@Foo
+def bar():
+    print('bar')
+
+bar()
+# %%

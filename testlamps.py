@@ -33,7 +33,7 @@ def getAddrStr(addr: int) -> str:
 
 async def switchLamp(ser:serial.Serial, lamp:Lamp, s, dd, dr):
     frame = lamp.generateWriteFrame(switch=s, luminance=90, ct=64, ddt=dd, drt=dr)
-    ser.write(bytes.fromhex(frame.toBytes()))
+    ser.write(frame.toBytes())
     await asyncio.sleep(float(dr) / 1000.0)
     res = ser.read(13)
     print(res)
@@ -76,7 +76,7 @@ async def main(ser:serial.Serial, lamps:list):
     started_at = time.monotonic()
     while not queue.empty():
         frame = await queue.get()
-        ser.write(bytes.fromhex(frame.toBytes()))
+        ser.write(frame.toBytes())
         await asyncio.sleep(0.3)
         print(ser.read(13))
         queue.task_done()

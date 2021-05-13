@@ -212,4 +212,12 @@ class Curtain(Device):
             data += ' ' + super().getWordStr(item)
         self._lastWrite = MyFrame(head, cmd, data)
         return self._lastWrite
-        
+
+class Panel:
+    """
+    ### 面板类, 独立于设备基类的控制面板
+    #### Attributes:
+
+    """
+    def __init__(self) -> None:
+        self._sensor = Sensor()

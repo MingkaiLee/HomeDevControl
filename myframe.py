@@ -1,4 +1,4 @@
-# 发送数据帧类, 方便构建基于zigbee模组设备的数据
+# 数据帧类包, 方便构建基于zigbee模组设备的数据
 def bytesStrStandardization(num) -> str:
     """
     ### 求整数的bytes.fromhex()的合法输入字符串
@@ -49,6 +49,8 @@ class MyFrame:
         self.__length = bytes.fromhex(bytesStrStandardization(len(self.__data)))
         # 自动计算异或校验和
         self.__xor = self.__xorCalculator()
+        # 自动生成16进制字符串
+        self.__content = self._toHexStr()
     
     def reCommand(self, cmd) -> None:
         """
@@ -61,6 +63,8 @@ class MyFrame:
         self.__cmd = bytes.fromhex(cmd)
         # 重新计算异或校验和
         self.__xor = self.__xorCalculator()
+        # 重新生成整串
+        self.__content = self._toHexStr()
     
     def reData(self, data) -> None:
         """
@@ -73,8 +77,10 @@ class MyFrame:
         self.__length = bytes.fromhex(bytesStrStandardization(len(self.__data)))
         # 重新计算异或校验和
         self.__xor = self.__xorCalculator()
+        # 重新生成整串
+        self.__content = self._toHexStr()
     
-    def toBytes(self) -> str:
+    def _toHexStr(self) -> str:
         """
         ### 输出可供bytes.fromhex()化作字节串的字符串
         #### Returns:
@@ -82,5 +88,18 @@ class MyFrame:
         """
         return self.__head.hex() + self.__length.hex() + self.__cmd.hex() + self.__data.hex() + self.__xor.hex()
     
+    def toBytes(self) -> bytes:
+        """
+        ### 输出bytes数据
+        #### Returns:
+        - res: 全帧的bytes数据
+        """
+        return bytes.fromhex(self.__content)
+    
     def __str__(self) -> str:
         return self.__head.hex() + ':' + self.__length.hex() + ':' + self.__cmd.hex(':') + ':' + self.__data.hex(':') + ':' + self.__xor.hex()
+
+# 将输入命令解析出结果
+class FrameParse:
+    def __init__(self, frame: bytes) -> None:
+        pass
