@@ -1,5 +1,5 @@
 # 数据帧类包, 方便构建基于zigbee模组设备的数据
-def bytesStrStandardization(num) -> str:
+def bytesStrStandardization(num: int) -> str:
     """
     ### 求整数的bytes.fromhex()的合法输入字符串
     #### Parameters:
@@ -14,21 +14,17 @@ def bytesStrStandardization(num) -> str:
 
 
 class MyFrame:
-    def __xorCalculator(self) -> bytes:
-        """
-        ### 计算异或校验和
-        计算方法: 长度域, 命令域和数据域3个域按字节的异或和
-        #### Returns:
-        - res: 异或校验和计算结果, bytes
-        """
-        res = self.__length[0]
-        for i in range(len(self.__cmd)):
-            res = res ^ self.__cmd[i]
-        for i in range(len(self.__data)):
-            res = res ^ self.__data[i]
-        return bytes.fromhex(bytesStrStandardization(res))
-
-    def __init__(self, head, cmd, data) -> None:
+    """
+    ### 按照16进制字符串构建的数据帧类
+    #### Attributes:
+    - __head: 帧头, 如"fe"
+    - __cmd: 命令域, 如"24 5f"
+    - __data: 数据域
+    - __length: 长度域
+    - __xor: 异或和
+    - __content: 全帧
+    """
+    def __init__(self, head: str, cmd: str, data: str) -> None:
         """
         ### 构建发送帧
         #### Parameters:
@@ -48,11 +44,25 @@ class MyFrame:
         # 自动计算长度域
         self.__length = bytes.fromhex(bytesStrStandardization(len(self.__data)))
         # 自动计算异或校验和
-        self.__xor = self.__xorCalculator()
+        self.__xor = self._xorCalculator()
         # 自动生成16进制字符串
         self.__content = self._toHexStr()
     
-    def reCommand(self, cmd) -> None:
+    def _xorCalculator(self) -> bytes:
+        """
+        ### 计算异或校验和
+        计算方法: 长度域, 命令域和数据域3个域按字节的异或和
+        #### Returns:
+        - res: 异或校验和计算结果, bytes
+        """
+        res = self.__length[0]
+        for i in range(len(self.__cmd)):
+            res = res ^ self.__cmd[i]
+        for i in range(len(self.__data)):
+            res = res ^ self.__data[i]
+        return bytes.fromhex(bytesStrStandardization(res))
+    
+    def reCommand(self, cmd: str) -> None:
         """
         ### 修改命令域内容
         #### Parameters:
@@ -62,11 +72,11 @@ class MyFrame:
             raise ValueError("Unexpected cmd input.")
         self.__cmd = bytes.fromhex(cmd)
         # 重新计算异或校验和
-        self.__xor = self.__xorCalculator()
+        self.__xor = self._xorCalculator()
         # 重新生成整串
         self.__content = self._toHexStr()
     
-    def reData(self, data) -> None:
+    def reData(self, data: str) -> None:
         """
         ### 修改数据域内容
         #### Parameters:
@@ -76,7 +86,7 @@ class MyFrame:
         # 重新计算长度域
         self.__length = bytes.fromhex(bytesStrStandardization(len(self.__data)))
         # 重新计算异或校验和
-        self.__xor = self.__xorCalculator()
+        self.__xor = self._xorCalculator()
         # 重新生成整串
         self.__content = self._toHexStr()
     
@@ -102,4 +112,14 @@ class MyFrame:
 # 将输入命令解析出结果
 class FrameParse:
     def __init__(self, frame: bytes) -> None:
-        pass
+        self._frame = frame
+        self._frameStr = frame.hex()
+        self._parse()
+
+    def _parse(self) -> None:
+        self._head = self._frameStr[:2]
+        self._length = self._frameStr[2:4]
+        self._cmd = self._frameStr[4:8]
+        self._data = self._frameStr[8:-2]
+        self._xor = self._frameStr[-2:]
+    

@@ -1,5 +1,6 @@
 #%%
 # 检查可用串口
+from traceback import extract_stack
 import serial.tools.list_ports
 res = serial.tools.list_ports.comports()
 for port in res:
@@ -190,18 +191,19 @@ make_element('p', '<spam>')
 x = bytes.fromhex('fe 0a 24 5f d0 07 01 06 15 00 00 01 4c 06 9f')
 print(x.hex()[8:-2])
 # %%
-class Foo:
-    def __init__(self, func) -> None:
-        self._func = func
-    
-    def __call__(self, *args, **kwds):
-        print(1)
-        self._func()
-        print(2)
+device_CLASS = {"sensor", 
+                "air", 
+                "fresh", 
+                "curtain", 
+                "humidifier", 
+                "ventilation", 
+                "lamp"}
+def addDevice(x: set, **kargs) -> None:
+    print(x.issuperset(kargs.keys()))
+    for vals in kargs.values():
+        if type(vals) not in {int, tuple, list}:
+            print(type(vals))
+    print(kargs.values())
+addDevice(device_CLASS, lamp=(1, 2, 3), air=2)
 
-@Foo
-def bar():
-    print('bar')
-
-bar()
 # %%

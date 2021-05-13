@@ -12,21 +12,27 @@ path = '/Users/limingkai/vsCode/Python_WorkSpace/HomeDevControl'
 sys.path.append(path)
 from myframe import MyFrame
 
+# 支持的设备的种类
+DEVICE_CLASS = {"sensor", 
+                "air", 
+                "fresh", 
+                "curtain", 
+                "humidifier", 
+                "ventilation", 
+                "lamp"}
 
 # 设备基类
 class Device:
     """
     ### 设备基类
     #### Attributes:
-    - _devId: 设备在控制端的识别码
     - _devAddr: 设备的目的地址
     - _lastCall: 上一次调用的查询命令的内容
     - _lastCallTime: 上一次调用的查询命令发送时间戳
     - _lastCallRes: 上一次调用的查询命令返回的内容
     - _lastCallResTime: 上一次调用的查询命令返回的时间戳
     """
-    def __init__(self, devId, devAddr:int) -> None:
-        self._devId = devId
+    def __init__(self, devAddr:int) -> None:
         self._devAddr = self.getWordStr(devAddr, True)
         self._lastCall = None
         self._lastCallTime = None
@@ -65,9 +71,6 @@ class Device:
                 res = f"{x[:2]} {x[-2:]}"
         return res
     
-    def getDevId(self) -> object:
-        return self._devId
-    
     def getDevAddr(self) -> str:
         return self._devAddr
 
@@ -88,8 +91,8 @@ class Sensor(Device):
     ### 传感器基类, 继承自设备基类
     #### Attributes:
     """
-    def __init__(self, devId, devAddr: int) -> None:
-        super().__init__(devId, devAddr)
+    def __init__(self, devAddr: int) -> None:
+        super().__init__(devAddr)
         index = pd.Index(('温度', '湿度', 'PM2.5', 'CO2', '甲醛', 'VOC'), name='项目')
         self._data = pd.Series(np.zeros(6), index=index, dtype=np.float16)
     
@@ -126,8 +129,8 @@ class Lamp(Device):
     ### 灯具类, 继承自设备基类
     #### Attributes:
     """
-    def __init__(self, devId, devAddr: int) -> None:
-        super().__init__(devId, devAddr)
+    def __init__(self, devAddr: int) -> None:
+        super().__init__(devAddr)
         index = pd.Index(('开关', '亮度', '色温'), name='项目')
         self._data = pd.Series(np.zeros(3), index=index, dtype=np.int16)
         self._lastWrite = None
@@ -174,8 +177,8 @@ class Curtain(Device):
     ### 窗帘类, 继承自设备基类
     #### Attributes:
     """
-    def __init__(self, devId, devAddr: int) -> None:
-        super().__init__(devId, devAddr)
+    def __init__(self, devAddr: int) -> None:
+        super().__init__(devAddr)
         # 开度
         self._data = 0
         self._lastWrite = None
@@ -213,11 +216,48 @@ class Curtain(Device):
         self._lastWrite = MyFrame(head, cmd, data)
         return self._lastWrite
 
-class Panel:
+class Panel(Device):
     """
     ### 面板类, 独立于设备基类的控制面板
     #### Attributes:
 
     """
-    def __init__(self) -> None:
-        self._sensor = Sensor()
+    def __init__(self, devAddr: int) -> None:
+        super().__init__(devAddr)
+        # 在线可控传感器地址
+        self._sensoraddr = 0
+        # 在线可控灯具数量
+        self._lampNum = 0
+        # 在线可控灯具地址列表
+        self._lampAddrs = []
+    
+    def generateCallFrame(self) -> str:
+        """
+        ### 获取面板基础信息
+        """
+        pass
+
+    def addDevice(self, **kargs) -> None:
+        """
+        ### 向面板中添加可控设备, 可一次性添加任意数量的设备, 注意输入范式
+        ### Details:
+        #### 可用关键字及含义:
+        - sensor: 六合一传感器
+        - air: 空调
+        - fresh: 空气净化器
+        - curtian: 窗帘
+        - humidifier: 加湿器
+        - ventilation: 新风机
+        - lamp: 灯具
+        #### 参数输入规范:
+        int, tuple of ints, list of ints like: 11, [11, 12, 13]
+        表示设备的通信目的地址
+        """
+        # 输入关键字不合法抛出异常
+        if not DEVICE_CLASS.issuperset(kargs.keys()):
+            raise ValueError("Unknown keywords. Please check your inputs.")
+        # 输入参数不合法抛出异常
+        for vals in kargs.values():
+            if type(vals) not in {int, tuple, list}:
+                pass
+
