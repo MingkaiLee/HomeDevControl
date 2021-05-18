@@ -111,10 +111,16 @@ class MyFrame:
 
 # 将输入命令解析出结果
 class FrameParse:
-    def __init__(self, frame: bytes) -> None:
-        self._frame = frame
-        self._frameStr = frame.hex()
-        self._parse()
+    """
+    ### 数据帧解析类, 解析由串口读入的数据帧, 分割出帧头, 长度域, 命令域, 数据域和异或和
+    #### Methods:
+    - parse: 解析数据
+    - show: 打印基本解析信息
+
+    """
+    def __init__(self) -> None:
+        self._frame = None
+        self._frameStr = None
 
     def _parse(self) -> None:
         self._head = self._frameStr[:2]
@@ -122,4 +128,33 @@ class FrameParse:
         self._cmd = self._frameStr[4:8]
         self._data = self._frameStr[8:-2]
         self._xor = self._frameStr[-2:]
+        # 数据域内容具体解析
+        self._data_addr = self._data[:4]
+        self._data_fc = self._data[4:8]
+        self._data_others = self._data[8:]
+
+    def parse(self, frame: bytes) -> None:
+        """
+        ### 解析数据
+        #### Attributes:
+        - frame: 待解析的完整数据帧
+        - detailed: 是否具体解析数据域
+        """
+        self._frame = frame
+        self._frameStr = frame.hex()
+        self._parse()
+    
+    def show(self) -> None:
+        res = f'帧  头: {self._head}\n长度域: {self._length}\n命令域: {self._cmd}\n数据域: {self._data}\n异或和: {self._xor}\n地  址: {self._data_addr}\n功能码: {self._data_fc}\n数  据: {self._data_others}'
+        print(res)
+
+    def getData(self) -> str:
+        """
+        ### 返回数据域功能码之后的内容
+        """
+        return self._data[4:]
+
+    def __str__(self) -> str:
+        res = f'帧  头: {self._head}\n长度域: {self._length}\n命令域: {self._cmd}\n数据域: {self._data}\n异或和: {self._xor}'
+        return res
     

@@ -86,6 +86,17 @@ class Device:
         """
         pass
 
+    def _generateFrame(self, cdata) -> object:
+        """
+        ### 生成数据帧的低层级接口, 从功能码到异或和之前的数据域自定义, 不改变对象内部属性
+        #### Parameters:
+        - cdata: 数据域从功能码开始的内容
+        """
+        head = 'fe'
+        cmd = '24 5f'
+        data = self.getDevAddr() + ' ' + cdata
+        return MyFrame(head, cmd, data)
+
 class Sensor(Device):
     """
     ### 传感器基类, 继承自设备基类
@@ -148,7 +159,7 @@ class Lamp(Device):
         cmd = '24 5f'
         data = super().getDevAddr() + ' 01 03 00 00 00 03'
         self._lastCall = MyFrame(head, cmd, data)
-        return super().generateCallFrame()
+        return self._lastCall
     
     def generateWriteFrame(self, switch=None, luminance=None, ct=None, vt=0, ddt=0, drt=0) -> MyFrame:
         """
@@ -250,14 +261,80 @@ class Panel(Device):
         - ventilation: 新风机
         - lamp: 灯具
         #### 参数输入规范:
-        int, tuple of ints, list of ints like: 11, [11, 12, 13]
+        int, tuple of ints, list of ints like: 11, [11, 12, 13](iterable object)
         表示设备的通信目的地址
         """
         # 输入关键字不合法抛出异常
         if not DEVICE_CLASS.issuperset(kargs.keys()):
             raise ValueError("Unknown keywords. Please check your inputs.")
-        # 输入参数不合法抛出异常
-        for vals in kargs.values():
-            if type(vals) not in {int, tuple, list}:
+        for key, val in kargs.items():
+            # 输入参数不合法抛出异常
+            if type(val) not in {int, tuple, list}:
+                raise ValueError("Wrong value. Please check your inputs.")
+            # 添加设备
+            if key == 'sensor':
                 pass
+            elif key == 'air':
+                pass
+            elif key == 'fresh':
+                pass
+            elif key == 'curtain':
+                pass
+            elif key == 'humidifier':
+                pass
+            elif key == 'ventilation':
+                pass
+            else:
+                if type(val) is int:
+                    self._lampNum += 1
+                    self._lampAddrs.append(val)
+                else:
+                    self._lampNum += len(val)
+                    for addr in val:
+                        self._lampAddrs.append(addr)
 
+class Panel1(Panel):
+    """
+    ### 面板型号1, 控制面板4.0
+    #### Attributes:
+    """
+    def __init__(self, devAddr: int) -> None:
+        super().__init__(devAddr)
+
+    def generateFrame(self, cdata):
+        self._lastCall = super()._generateFrame(cdata)
+        return self._lastCall
+
+    def parseRegister(self, regData: bytes, type: str):
+        """
+        ### 解析寄存器中的内容
+        #### Attributes:
+        - regData: 寄存器中内容, bytes类型
+        - type: 该寄存器的类型
+        #### type可用值及含义:
+        - lamps: 全部灯具修改
+        """
+        if type == 'lamps':
+            pass
+
+    
+    def generateFrameFromData(self, panel_data: str) -> list:
+        """
+        ### 按照控制面板4.0的V1.5协议解析命令, 输入的全为命令域为01 46的数据
+        """
+        # 寄存器地址
+        regAddr = panel_data[:4]
+        # 寄存器内容
+        regData = panel_data[4:-4]
+
+        # 返回的数据帧列表
+        frames = list()
+
+        # 控制全部灯具
+        if regAddr == '00d1':
+            # 将十六进制字符串转为bytes方便解析
+            parseRes = self.parseRegister(bytes.fromhex(regData), 'lamps')
+            # 
+
+
+        return frames

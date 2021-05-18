@@ -200,9 +200,10 @@ device_CLASS = {"sensor",
                 "lamp"}
 def addDevice(x: set, **kargs) -> None:
     print(x.issuperset(kargs.keys()))
-    for vals in kargs.values():
-        if type(vals) not in {int, tuple, list}:
-            print(type(vals))
+    for key, val in kargs.items():
+        if type(val) in {int, tuple, list}:
+            print(type(key))
+            print(type(val))
     print(kargs.values())
 addDevice(device_CLASS, lamp=(1, 2, 3), air=2)
 
