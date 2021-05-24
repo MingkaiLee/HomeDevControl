@@ -191,6 +191,7 @@ make_element('p', '<spam>')
 x = bytes.fromhex('fe 0a 24 5f d0 07 01 06 15 00 00 01 4c 06 9f')
 print(x.hex()[8:-2])
 # %%
+# 测试关键字参数传递效果
 device_CLASS = {"sensor", 
                 "air", 
                 "fresh", 
@@ -206,5 +207,16 @@ def addDevice(x: set, **kargs) -> None:
             print(type(val))
     print(kargs.values())
 addDevice(device_CLASS, lamp=(1, 2, 3), air=2)
-
+# %%
+# 测试地址计算函数
+def get_panel_reg_addr(addr: int) -> str:
+    x = hex(addr)[2:]
+    while len(x) < 4:
+        x = "0" + x
+    return x
+print(get_panel_reg_addr(209))
+print(get_panel_reg_addr(0))
+print([get_panel_reg_addr(i) for i in range(210, 274)])
+x = bytes.fromhex("9000")
+print(x[0])
 # %%

@@ -59,7 +59,7 @@ async def turnOff(ser:serial.Serial, lamps:list):
     await task3
 
 async def main(ser:serial.Serial, lamps:list):
-    lamp_num = len(lamps_list)
+    lamp_num = len(lamps)
     queue = asyncio.Queue()
     for i in range(lamp_num):
         ddt = 300*(lamp_num-1) - 300*i

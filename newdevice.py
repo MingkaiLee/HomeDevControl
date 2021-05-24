@@ -21,6 +21,23 @@ DEVICE_CLASS = {"sensor",
                 "ventilation", 
                 "lamp"}
 
+# 计算面板上寄存器的十进制地址在数据帧中的表示
+def get_panel_reg_addr(addr: int) -> str:
+    """
+    ### 计算面板上寄存器的十进制地址在数据帧中的表示
+    #### Attributes:
+    - addr: 十进制的寄存器地址
+    #### Returns:
+    - x: "xxxx"式十六进制表示的地址
+    """
+    x = hex(addr)[2:]
+    while len(x) < 4:
+        x = "0" + x
+    return x
+
+# 面板1中所有单独灯具的地址
+PANEL1_LAMP = [get_panel_reg_addr(i) for i in range(210, 274)]
+
 # 设备基类
 class Device:
     """
@@ -66,9 +83,22 @@ class Device:
             elif len(x) == 2:
                 res = f"00 {x}"
             elif len(x) == 3:
-                res = f" 0{x[0]} {x[-2:]}"
+                res = f"0{x[0]} {x[-2:]}"
             else:
                 res = f"{x[:2]} {x[-2:]}"
+        return res
+    
+    def getRegStr(self, val: int) -> str:
+        """
+        ### 10进制整数转8位2进制字符串, 输入范围不检验, 默认合法
+        #### Parameters:
+        - val: 10进制数值, 0-255
+        #### Returns:
+        - res: 'xxxxxxxx'式表一字节寄存器内容的字符串
+        """
+        res = hex(val)[2:]
+        while len(res) < 8:
+            res = '0' + res
         return res
     
     def getDevAddr(self) -> str:
@@ -239,14 +269,31 @@ class Panel(Device):
         self._sensoraddr = 0
         # 在线可控灯具数量
         self._lampNum = 0
-        # 在线可控灯具地址列表
-        self._lampAddrs = []
+        # 在线可控灯具列表
+        self._lamps = []
     
     def generateCallFrame(self) -> str:
         """
         ### 获取面板基础信息
         """
         pass
+
+    def getDevice(self, name: str) -> list:
+        """
+        ### 获取某类设备列表
+        #### 可用关键字及含义:
+        - sensor: 六合一传感器
+        - air: 空调
+        - fresh: 空气净化器
+        - curtian: 窗帘
+        - humidifier: 加湿器
+        - ventilation: 新风机
+        - lamp: 灯具
+        """
+        if name not in DEVICE_CLASS:
+            raise ValueError("Unknown keywords. Please check your inputs.")
+        if name == 'lamp':
+            return self._lamps
 
     def addDevice(self, **kargs) -> None:
         """
@@ -287,11 +334,11 @@ class Panel(Device):
             else:
                 if type(val) is int:
                     self._lampNum += 1
-                    self._lampAddrs.append(val)
+                    self._lamps.append(Lamp(val))
                 else:
                     self._lampNum += len(val)
                     for addr in val:
-                        self._lampAddrs.append(addr)
+                        self._lamps.append(Lamp(addr))
 
 class Panel1(Panel):
     """
@@ -308,19 +355,42 @@ class Panel1(Panel):
     def parseRegister(self, regData: bytes, type: str):
         """
         ### 解析寄存器中的内容
-        #### Attributes:
+        #### Parameters:
         - regData: 寄存器中内容, bytes类型
         - type: 该寄存器的类型
         #### type可用值及含义:
-        - lamps: 全部灯具修改
-        """
-        if type == 'lamps':
-            pass
+        - lamps: 灯具类设备的修改
 
+        """
+        # 获取寄存器的高八位和低八位
+        reg_hi = super().getRegStr(regData[0])
+        reg_lo = super().getRegStr(regData[1])
+
+        # 返回结果, 字典形式, 因设备而异
+        res = dict()
+
+        if type == 'lamps':
+            res.update({'switch': 0, 'luminance':100, 'ct':100})
+            # 开关使能1, 修改开关状态
+            if reg_hi[0] == '1':
+                res['switch'] = int(reg_hi[3])
+            # 亮度使能1, 修改亮度
+            if reg_hi[1] == '1':
+                luminance_bin = reg_hi[4:] + reg_lo[0]
+                res['luminance'] = int(luminance_bin, 2) * 5
+            # 色温使能1, 修改色温
+            if reg_hi[2] == '1':
+                ct_bin = reg_lo[1:6]
+                res['ct'] = int(ct_bin, 2) * 5
+        return res
     
     def generateFrameFromData(self, panel_data: str) -> list:
         """
-        ### 按照控制面板4.0的V1.5协议解析命令, 输入的全为命令域为01 46的数据
+        ### 按照控制面板4.0的V1.5协议解析命令, 并生成相应的控制数据帧
+        #### Parameters:
+        - panel_data: 数据域在功能码0146之后的内容, 46为扩展功能码
+        #### Returns:
+        - frames: 根据面板传入的命令, 对设备的控制数据帧
         """
         # 寄存器地址
         regAddr = panel_data[:4]
@@ -334,7 +404,27 @@ class Panel1(Panel):
         if regAddr == '00d1':
             # 将十六进制字符串转为bytes方便解析
             parseRes = self.parseRegister(bytes.fromhex(regData), 'lamps')
-            # 
-
+            # 根据解析值生成命令帧
+            r = 0
+            for lamp in self._lamps:
+                ddt = 280*(self._lampNum - 1 - r)
+                drt = 10 * r
+                r += 1
+                frames.append(lamp.generateWriteFrame(
+                    switch = parseRes['switch'],
+                    luminance = parseRes['luminance'],
+                    ct = parseRes['ct'],
+                    ddt = ddt,
+                    drt = drt
+                ))
+        # 控制某个灯具
+        elif regAddr in PANEL1_LAMP:
+            parseRes = self.parseRegister(bytes.fromhex(regData), 'lamps')
+            #
 
         return frames
+
+if __name__ == '__main__':
+    p1 = Panel1(999)
+
+    pass

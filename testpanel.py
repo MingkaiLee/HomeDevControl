@@ -12,6 +12,49 @@ sys.path.append(path)
 from myframe import MyFrame, FrameParse
 from newdevice import Lamp, Panel1
 
+async def main(ser:serial.Serial, lamps:list):
+    lamp_num = len(lamps)
+    queue = asyncio.Queue()
+    for i in range(lamp_num):
+        ddt = 300*(lamp_num-1) - 300*i
+        drt = 10*i
+        lamp = lamps[i]
+        frame = lamp.generateWriteFrame(switch=0, luminance=90, ct=64, ddt=ddt, drt=drt)
+        queue.put_nowait(frame)
+    for i in range(lamp_num):
+        ddt = 1000+300*(lamp_num-1) - 300*i
+        drt = 10*i
+        lamp = lamps[i]
+        frame = lamp.generateWriteFrame(switch=1, luminance=90, ct=64, ddt=ddt, drt=drt)
+        queue.put_nowait(frame)
+    started_at = time.monotonic()
+    while not queue.empty():
+        frame = await queue.get()
+        ser.write(frame.toBytes())
+        await asyncio.sleep(0.3)
+        print(ser.read(13))
+        queue.task_done()
+    await queue.join()
+    total_recvtime = time.monotonic() - started_at
+    print(f'total_recvtime:{total_recvtime:.2f}')
+
+# 异步串口灯控制, 帧与事件队列作用
+async def writeFrame(ser:serial.Serial, frames:list):
+    # 创建事件队列
+    queue = asyncio.Queue()
+    # 创建数据帧解析工具
+    fp = FrameParse()
+    for frame in frames:
+        queue.put_nowait(frame)
+    while not queue.empty():
+        frame = await queue.get()
+        ser.write(frame.toBytes())
+        await asyncio.sleep(0.3)
+        res = ser.read(13)
+        fp.parse(res)
+        fp.show()
+    await queue.join()
+
 if __name__ == '__main__':
     port_name = 'COM3'
     ser = serial.Serial(port_name, timeout=5)
@@ -19,16 +62,15 @@ if __name__ == '__main__':
         ser.open()
     # 创建面板
     panel = Panel1(999)
-    # 创建可控制灯的列表
-    lamp_list = []
-    for i in range(11, 26):
-        lamp_list.append(Lamp(i))
-    
-    # 未加入异步操作的试验
-    frame = panel.generateFrame('01 06 00 d2 90 00 b4 3c')
-    ser.write(frame.toBytes())
+    # 将可控的灯添加到面板中
+    panel.addDevice(lamp=[i for i in range(11, 26)])
+    # 接收面板数据
     res = ser.read(15)
     fp = FrameParse()
     fp.parse(res)
+    # 展示面板数据
     fp.show()
+    # 根据面板数据生成数据帧
+    frames = panel.generateFrameFromData(fp.getData())
+    asyncio.run(writeFrame(ser, frames))
     ser.close()

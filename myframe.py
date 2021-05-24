@@ -152,7 +152,7 @@ class FrameParse:
         """
         ### 返回数据域功能码之后的内容
         """
-        return self._data[4:]
+        return self._data_others
 
     def __str__(self) -> str:
         res = f'帧  头: {self._head}\n长度域: {self._length}\n命令域: {self._cmd}\n数据域: {self._data}\n异或和: {self._xor}'
