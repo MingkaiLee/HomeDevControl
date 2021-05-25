@@ -170,24 +170,6 @@ def getAddrStr(addr: int) -> str:
     return res
 print(getAddrStr(0))
 # %%
-import html
-
-def make_element(name, value, **attrs):
-    keyvals = [' %s="%s"' % item for item in attrs.items()]
-    attr_str = ''.join(keyvals)
-    element = '<{name}{attrs}>{value}</{name}>'.format(
-                name=name,
-                attrs=attr_str,
-                value=html.escape(value))
-    return element
-
-# Example
-# Creates '<item size="large" quantity="6">Albatross</item>'
-make_element('item', 'Albatross', size='large', quantity=6)
-
-# Creates '<p>&lt;spam&gt;</p>'
-make_element('p', '<spam>')
-# %%
 x = bytes.fromhex('fe 0a 24 5f d0 07 01 06 15 00 00 01 4c 06 9f')
 print(x.hex()[8:-2])
 # %%
@@ -219,4 +201,24 @@ print(get_panel_reg_addr(0))
 print([get_panel_reg_addr(i) for i in range(210, 274)])
 x = bytes.fromhex("9000")
 print(x[0])
+# %%
+# 测试传感器数据更新函数
+import sys
+import serial
+sys.path.append('D:\house app\物联网\lmk\IoTLab')
+from myframe import MyFrame, FrameParse
+from newdevice import Sensor
+# 创建解析工具实例
+fp = FrameParse()
+# 创建一个回复帧
+x = bytes.fromhex('fe 11 44 5f 0a 00 01 03 0c 00 fa 00 b0 00 39 04 d1 00 00 00 00 aa')
+# 解析该回复帧
+fp.parse(x)
+# 展示解析结果
+fp.show()
+# 创建传感器实例
+s = Sensor(992)
+# 传感器实例更新数据
+s.updateData(fp.getData())
+print(s.getData())
 # %%

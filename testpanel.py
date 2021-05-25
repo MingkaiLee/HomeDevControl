@@ -53,24 +53,31 @@ async def writeFrame(ser:serial.Serial, frames:list):
         res = ser.read(13)
         fp.parse(res)
         fp.show()
+        queue.task_done()
     await queue.join()
 
 if __name__ == '__main__':
-    port_name = 'COM3'
+    port_name = 'COM4'
     ser = serial.Serial(port_name, timeout=5)
     if not ser.isOpen():
         ser.open()
+    print(ser.isOpen())
     # 创建面板
     panel = Panel1(999)
     # 将可控的灯添加到面板中
     panel.addDevice(lamp=[i for i in range(11, 26)])
     # 接收面板数据
-    res = ser.read(15)
+    res = ser.read()
+    print(res)
     fp = FrameParse()
     fp.parse(res)
     # 展示面板数据
     fp.show()
     # 根据面板数据生成数据帧
     frames = panel.generateFrameFromData(fp.getData())
+    fp.parse(frames[0])
+    fp.show()
+    ser.close()
+    sys.exit()
     asyncio.run(writeFrame(ser, frames))
     ser.close()

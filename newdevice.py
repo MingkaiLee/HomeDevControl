@@ -135,7 +135,7 @@ class Sensor(Device):
     def __init__(self, devAddr: int) -> None:
         super().__init__(devAddr)
         index = pd.Index(('温度', '湿度', 'PM2.5', 'CO2', '甲醛', 'VOC'), name='项目')
-        self._data = pd.Series(np.zeros(6), index=index, dtype=np.float16)
+        self._data = pd.Series(np.zeros(6), index=index, dtype=np.float32)
     
     def generateCallFrame(self) -> object:
         """
@@ -148,6 +148,36 @@ class Sensor(Device):
         data = super().getDevAddr() + ' 01 03 00 00 00 06'
         self._lastCall = MyFrame(head, cmd, data)
         return self._lastCall
+    
+    def updateData(self, data: str) -> None:
+        """
+        ### 由CallFrame发送后返回的内容更新数据
+        #### Parameters:
+        - data: 数据域在功能码0103之后的内容, 03为读保持寄存器功能码
+        """
+        # 注: 按照通信协议, 功能码后除去一byte字节数, 每个字中数据依次为:
+        # 温度, 湿度, PM2.5, CO2, 甲醛, VOC
+
+        # 转为byte便于计算
+        x = bytes.fromhex(data)
+        # 更新温度
+        self._data['温度'] = (x[1]*256+x[2]) / 10.0
+        # 更新湿度
+        self._data['湿度'] = (x[3]*256+x[4]) / 10.0
+        # 更新PM2.5
+        self._data['PM2.5'] = x[5]*256 + x[6]
+        # 更新CO2
+        self._data['CO2'] = x[7]*256 + x[8]
+        # 更新甲醛
+        self._data['甲醛'] = x[9]*256 + x[10]
+        # 更新VOC
+        self._data['VOC'] = x[11]*256 + x[12]
+    
+    def getData(self) -> str:
+        """
+        ### 获取传感器数据
+        """
+        return self._data
 
     def generateValFrame(self, valType: int) -> object:
         """
@@ -265,8 +295,8 @@ class Panel(Device):
     """
     def __init__(self, devAddr: int) -> None:
         super().__init__(devAddr)
-        # 在线可控传感器地址
-        self._sensoraddr = 0
+        # 在线可控传感器
+        self._sensor = None
         # 在线可控灯具数量
         self._lampNum = 0
         # 在线可控灯具列表
@@ -278,7 +308,7 @@ class Panel(Device):
         """
         pass
 
-    def getDevice(self, name: str) -> list:
+    def getDevice(self, name: str):
         """
         ### 获取某类设备列表
         #### 可用关键字及含义:
@@ -294,6 +324,8 @@ class Panel(Device):
             raise ValueError("Unknown keywords. Please check your inputs.")
         if name == 'lamp':
             return self._lamps
+        elif name == 'sensor':
+            return self._sensor
 
     def addDevice(self, **kargs) -> None:
         """
@@ -319,8 +351,12 @@ class Panel(Device):
             if type(val) not in {int, tuple, list}:
                 raise ValueError("Wrong value. Please check your inputs.")
             # 添加设备
+            # 添加传感器, 只有1个, 重新添加会覆盖
             if key == 'sensor':
-                pass
+                if type(val) is int:
+                    self._sensor = Sensor(val)
+                else:
+                    raise ValueError("Wrong value. Only one sensor allowed.")
             elif key == 'air':
                 pass
             elif key == 'fresh':
@@ -331,6 +367,7 @@ class Panel(Device):
                 pass
             elif key == 'ventilation':
                 pass
+            # 添加灯具, 创建实例对象加入列表
             else:
                 if type(val) is int:
                     self._lampNum += 1
@@ -386,7 +423,7 @@ class Panel1(Panel):
     
     def generateFrameFromData(self, panel_data: str) -> list:
         """
-        ### 按照控制面板4.0的V1.5协议解析命令, 并生成相应的控制数据帧
+        ### 按照控制面板4.0的V1.5协议解析命令, 并生成相应的控制数据帧，收到来自面板的帧后调用
         #### Parameters:
         - panel_data: 数据域在功能码0146之后的内容, 46为扩展功能码
         #### Returns:
@@ -423,6 +460,32 @@ class Panel1(Panel):
             #
 
         return frames
+    
+    def generateSensorQuery(self) -> object:
+        """
+        ### 驱使传感器对象生成更新传感器数据内容的帧
+        #### Returns:
+        - frame: 向在线传感器获取数据的帧
+        """
+        # 传感器未被加入时抛出异常
+        if self._sensor is None:
+            raise RuntimeError("Sensor hasn't been added.")
+        return self._sensor.generateCallFrame()
+    
+    def pushSensorFrame(self) -> object:
+        """
+        ### 生成面板更新传感器数据的帧
+        #### Returns:
+        - frame: 更新面板上数据的帧
+        """
+        # 传感器未被加入时抛出异常
+        if self._sensor is None:
+            raise RuntimeError("Sensor hasn't been added.")
+        # 从传感器中获取数据
+        data = self._sensor.getData()
+        
+
+
 
 if __name__ == '__main__':
     p1 = Panel1(999)
