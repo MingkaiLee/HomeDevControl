@@ -482,8 +482,20 @@ class Panel1(Panel):
         if self._sensor is None:
             raise RuntimeError("Sensor hasn't been added.")
         # 从传感器中获取数据
-        data = self._sensor.getData()
-        
+        dataRaw = self._sensor.getData()
+        head = 'fe'
+        cmd = '24 5f'
+        # 数据域结构: 地址, 功能码0110写多个寄存器, 起始地址, 寄存器数量, 字节数, 寄存器值, 校验码
+        data = super().getDevAddr() + '01 10' + '00 05' + '00 06' + '00 0C'
+        data += super().getWordStr(dataRaw['温度'])
+        data += super().getWordStr(dataRaw['湿度'])
+        data += super().getWordStr(dataRaw['PM2.5'])
+        data += super().getWordStr(dataRaw['CO2'])
+        data += super().getWordStr(dataRaw['甲醛'])
+        data += super().getWordStr(dataRaw['VOC'])
+        # 任意输入校验码
+        data += '00 00'
+        return MyFrame(head, cmd, data)
 
 
 

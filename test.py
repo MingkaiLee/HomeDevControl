@@ -7,12 +7,20 @@ for port in res:
     print(port)
 
 # %%
-# 串口通信测试
+# 激活面板
+import sys
 import serial
-
+sys.path.append('D:\house app\物联网\lmk\IoTLab')
+from myframe import MyFrame, FrameParse
+from newdevice import Panel1
 
 port_name = 'COM3'
 ser = serial.Serial(port_name)
+if not ser.isOpen():
+    ser.open()
+p1 = Panel1(999)
+frame = p1.generateFrame('fe', '24 5f', '')
+ser.close()
 # %%
 if ser.isOpen() == False:
     ser.open()
