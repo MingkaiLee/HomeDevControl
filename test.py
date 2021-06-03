@@ -1,6 +1,9 @@
 #%%
 # 检查可用串口
+from os import name
+import re
 from traceback import extract_stack
+from serial.serialutil import Timeout
 import serial.tools.list_ports
 res = serial.tools.list_ports.comports()
 for port in res:
@@ -14,13 +17,37 @@ sys.path.append('D:\house app\物联网\lmk\IoTLab')
 from myframe import MyFrame, FrameParse
 from newdevice import Panel1
 
-port_name = 'COM3'
-ser = serial.Serial(port_name)
+port_name = 'COM5'
+ser = serial.Serial(port_name, timeout=3)
 if not ser.isOpen():
     ser.open()
 p1 = Panel1(999)
-frame = p1.generateFrame('fe', '24 5f', '')
+# 帧功能: 点亮设备总开关
+frame = p1.generateFrame('01 06 00 00 00 01 00 00')
+print(frame)
+ser.write(frame.toBytes())
+res = ser.read(15)
+print(res)
 ser.close()
+# %%
+# 调取传感器数据, 检测传感器可用性和控制器可用性
+import sys
+import serial
+sys.path.append('D:\house app\物联网\lmk\IoTLab')
+from myframe import MyFrame, FrameParse
+from newdevice import Sensor
+
+port_name = 'COM5'
+ser = serial.Serial(port_name, timeout=3)
+if not ser.isOpen():
+    ser.open()
+s = Sensor(992)
+# 帧功能: 获取传感器的所有数据
+frame = s.generateCallFrame()
+print(frame)
+ser.write(frame.toBytes())
+
+
 # %%
 if ser.isOpen() == False:
     ser.open()
@@ -210,23 +237,41 @@ print([get_panel_reg_addr(i) for i in range(210, 274)])
 x = bytes.fromhex("9000")
 print(x[0])
 # %%
-# 测试传感器数据更新函数
+# 测试获取传感器数据并更新面板的函数
+# 每次面板重启, 在测试前请运行代码块2
 import sys
 import serial
 sys.path.append('D:\house app\物联网\lmk\IoTLab')
 from myframe import MyFrame, FrameParse
-from newdevice import Sensor
+from newdevice import Sensor, Panel1
+# 创建串口实例
+ser = serial.Serial('COM5', timeout=3)
+# 打开串口
+if not ser.isOpen():
+    ser.open()
+
 # 创建解析工具实例
 fp = FrameParse()
-# 创建一个回复帧
-x = bytes.fromhex('fe 11 44 5f 0a 00 01 03 0c 00 fa 00 b0 00 39 04 d1 00 00 00 00 aa')
-# 解析该回复帧
-fp.parse(x)
-# 展示解析结果
-fp.show()
-# 创建传感器实例
-s = Sensor(992)
+# 创建面板实例
+p = Panel1(999)
+# 传感器实例添加入面板中
+p.addDevice(sensor=992)
+# 面板驱动传感器实例生成数据更新帧
+frame = p.generateSensorQuery()
+# 发送该帧
+ser.write(frame.toBytes())
+# 接收数据
+res = ser.read(22)
+# 解析结果
+fp.parse(res)
 # 传感器实例更新数据
-s.updateData(fp.getData())
-print(s.getData())
+p.getDevice(name='sensor').updateData(fp.getData())
+# 打印最新数据
+print(p.getDevice(name='sensor').getData())
+# 面板生成更新数据的帧
+frame = p.pushSensorFrame()
+# 发送该帧
+ser.write(frame.toBytes())
+# 关闭串口
+ser.close()
 # %%

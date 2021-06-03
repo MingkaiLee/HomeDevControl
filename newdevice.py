@@ -498,7 +498,6 @@ class Panel1(Panel):
         return MyFrame(head, cmd, data)
 
 
-
 if __name__ == '__main__':
     p1 = Panel1(999)
 

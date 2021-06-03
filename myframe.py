@@ -1,4 +1,4 @@
-# 数据帧类包, 方便构建基于zigbee模组设备的数据
+# 数据帧类包, 方便构建基于Modbus模组设备的数据
 def bytesStrStandardization(num: int) -> str:
     """
     ### 求整数的bytes.fromhex()的合法输入字符串
