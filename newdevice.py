@@ -2,7 +2,6 @@
 ## 本模块抽象设备, 功能为抽象出设备后更方便地获取命令帧
 ## Attention: 确保在调用get开头的获取帧的方法后成功将帧发出
 """
-import time
 import numpy as np
 import pandas as pd
 import sys
@@ -86,6 +85,19 @@ class Device:
                 res = f"0{x[0]} {x[-2:]}"
             else:
                 res = f"{x[:2]} {x[-2:]}"
+        return res
+
+    def getByteStr(self, val: int) -> str:
+        """
+        ### 10进制整数转表单字节的字符串, 输入范围不检验, 默认合法
+        #### Parameters:
+        - val: 10进制数值
+        #### Returns:
+        - res: 'xx'式表单字节字符串
+        """
+        x = hex(val)[2:]
+        if len(x) == 1:
+            res = f"0{x}"
         return res
     
     def getRegStr(self, val: int) -> str:
@@ -470,7 +482,7 @@ class Panel1(Panel):
         # 传感器未被加入时抛出异常
         if self._sensor is None:
             raise RuntimeError("Sensor hasn't been added.")
-        return self._sensor.generateCallFrame()
+        return self._sensor.generateCallFrame() 
     
     def pushSensorFrame(self) -> object:
         """
@@ -486,13 +498,15 @@ class Panel1(Panel):
         head = 'fe'
         cmd = '24 5f'
         # 数据域结构: 地址, 功能码0110写多个寄存器, 起始地址, 寄存器数量, 字节数, 寄存器值, 校验码
-        data = super().getDevAddr() + '01 10' + '00 05' + '00 06' + '00 0C'
-        data += super().getWordStr(dataRaw['温度'])
-        data += super().getWordStr(dataRaw['湿度'])
-        data += super().getWordStr(dataRaw['PM2.5'])
-        data += super().getWordStr(dataRaw['CO2'])
-        data += super().getWordStr(dataRaw['甲醛'])
-        data += super().getWordStr(dataRaw['VOC'])
+        data = super().getDevAddr() + '01 10' + '00 05' + '00 06' + '0c'
+        # 定义一个温度计算的函数
+        t = lambda x: int(10*x) + 400
+        data += super().getWordStr(t(dataRaw['温度']))
+        data += super().getWordStr(round(dataRaw['湿度']))
+        data += super().getWordStr(round(dataRaw['PM2.5']))
+        data += super().getWordStr(round(dataRaw['CO2']))
+        data += super().getWordStr(round(dataRaw['甲醛']))
+        data += super().getWordStr(round(dataRaw['VOC']))
         # 任意输入校验码
         data += '00 00'
         return MyFrame(head, cmd, data)

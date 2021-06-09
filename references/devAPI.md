@@ -13,6 +13,7 @@ Created by Li Mingkai on 2021.05.27
 |方法名称|方法功能|
 |-|-|
 |getWordStr|将10进制整数转为xx xx式的表示十六进制双字节的字符串, 不会作越界检查|
+|getByteStr|将10进制整数转为xx式的表示十六进制的字节串, 不会作越界检查|
 |getRegStr|将10进制整数转为xxxxxxxx式的表示二进制单字节的字符串, 不会作越界检查|
 |getDevAddr|返回设备的目的地址|
 |_generateFrane|生成数据帧的低层级接口, 填入数据域内容后生成完整的数据帧|

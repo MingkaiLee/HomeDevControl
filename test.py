@@ -82,7 +82,7 @@ import sys
 import serial
 sys.path.append('D:\house app\物联网\lmk\IoTLab\myframe.py')
 from myframe import MyFrame
-port_name = 'COM3'
+port_name = 'COM5'
 ser = serial.Serial(port_name)
 if ser.isOpen() == False:
     ser.open()
@@ -94,7 +94,7 @@ frame = MyFrame('fe', '24 5f', 'e0 03 01 03 00 00 00 06')
 # 获取传感器的某个数据
 frame = MyFrame('fe', '24 5f', 'e0 03 01 03 00 01 00 01')
 
-ser.write(bytes.fromhex(frame.toBytes()))
+ser.write(frame.toBytes())
 res = ser.read(12)
 ser.close()
 # %%
@@ -167,15 +167,6 @@ for n in range(nworkers):
 import sys
 print(sys.version_info[:3])
 # %%
-import asyncio
-async def main():
-    print('hello')
-    await asyncio.sleep(1)
-    print('world')
-asyncio.run(main())
-# %%
-g = (x**x for x in range(10))
-# %%
 # 测试与灯具的通信
 if not ser.isOpen():
     ser.open()
@@ -225,6 +216,25 @@ def addDevice(x: set, **kargs) -> None:
     print(kargs.values())
 addDevice(device_CLASS, lamp=(1, 2, 3), air=2)
 # %%
+# 测试设置timeout后, 在一段时间内通过面板反复向控制器发送指令的结果
+import serial
+# 创建串口实例
+ser = serial.Serial('COM5', timeout=3)
+# 打开串口
+if not ser.isOpen():
+    ser.open()
+# 测试read方法
+# res = ser.read(999)
+# 测试readline方法
+# res = ser.readline()
+# 测试readlines方法
+res = ser.readlines()
+# 测试readall方法
+# res = ser.readall()
+# 打印输出
+print(res)
+ser.close()
+# %%
 # 测试地址计算函数
 def get_panel_reg_addr(addr: int) -> str:
     x = hex(addr)[2:]
@@ -249,7 +259,6 @@ ser = serial.Serial('COM5', timeout=3)
 # 打开串口
 if not ser.isOpen():
     ser.open()
-
 # 创建解析工具实例
 fp = FrameParse()
 # 创建面板实例
@@ -262,6 +271,7 @@ frame = p.generateSensorQuery()
 ser.write(frame.toBytes())
 # 接收数据
 res = ser.read(22)
+print(res)
 # 解析结果
 fp.parse(res)
 # 传感器实例更新数据
@@ -270,8 +280,14 @@ p.getDevice(name='sensor').updateData(fp.getData())
 print(p.getDevice(name='sensor').getData())
 # 面板生成更新数据的帧
 frame = p.pushSensorFrame()
+print(frame)
 # 发送该帧
 ser.write(frame.toBytes())
+# 接收数据
+res = ser.readall()
+# 解析回复
+fp.parse(res)
+# 展示解析结果
+fp.show()
 # 关闭串口
 ser.close()
-# %%
