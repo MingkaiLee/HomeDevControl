@@ -309,21 +309,23 @@ class Panel(Device):
         super().__init__(devAddr)
         # 在线可控传感器
         self._sensor = None
-        # 在线可控灯具数量
-        self._lampNum = 0
         # 在线可控灯具列表
         self._lamps = []
-    
-    def generateCallFrame(self) -> str:
-        """
-        ### 获取面板基础信息
-        """
-        pass
+        # 在线可控窗帘列表
+        self._curtain = []
+        # 在线可控空调列表
+        self._air = []
+        # 在线可控空气净化器列表
+        self._fresh = []
+        # 在线可控加湿器列表
+        self._humidifier = []
+        # 在线可控新风机列表
+        self._ventilation = []
 
     def getDevice(self, name: str):
         """
         ### 获取某类设备列表
-        #### 可用关键字及含义:
+        #### 目前可用关键字及含义:
         - sensor: 六合一传感器
         - air: 空调
         - fresh: 空气净化器
@@ -338,6 +340,23 @@ class Panel(Device):
             return self._lamps
         elif name == 'sensor':
             return self._sensor
+        elif name == 'air':
+            return self._air
+        elif name == 'fresh':
+            return self._fresh
+        elif name == 'curtain':
+            return self._curtain
+        elif name == 'humidifier':
+            return self._humidifier
+        else:
+            return self._ventilation
+    
+    def getAllDevices(self) -> dict:
+        """
+        ### 获取当前所有设备的字典
+        #### 字典构成
+        """
+        pass
 
     def addDevice(self, **kargs) -> None:
         """
@@ -382,10 +401,8 @@ class Panel(Device):
             # 添加灯具, 创建实例对象加入列表
             else:
                 if type(val) is int:
-                    self._lampNum += 1
                     self._lamps.append(Lamp(val))
                 else:
-                    self._lampNum += len(val)
                     for addr in val:
                         self._lamps.append(Lamp(addr))
 
@@ -409,7 +426,6 @@ class Panel1(Panel):
         - type: 该寄存器的类型
         #### type可用值及含义:
         - lamps: 灯具类设备的修改
-
         """
         # 获取寄存器的高八位和低八位
         reg_hi = super().getRegStr(regData[0])
@@ -447,7 +463,7 @@ class Panel1(Panel):
         regData = panel_data[4:-4]
 
         # 返回的数据帧列表
-        frames = list()
+        frames: list = list()
 
         # 控制全部灯具
         if regAddr == '00d1':
@@ -455,21 +471,31 @@ class Panel1(Panel):
             parseRes = self.parseRegister(bytes.fromhex(regData), 'lamps')
             # 根据解析值生成命令帧
             r = 0
+            lampNum = len(self._lamps)
             for lamp in self._lamps:
-                ddt = 280*(self._lampNum - 1 - r)
-                drt = 10 * r
+                ddt = 290*(lampNum - 1 - r)
+                drt = 100 * r
                 r += 1
                 frames.append(lamp.generateWriteFrame(
-                    switch = parseRes['switch'],
-                    luminance = parseRes['luminance'],
-                    ct = parseRes['ct'],
-                    ddt = ddt,
-                    drt = drt
+                    switch=parseRes['switch'],
+                    luminance=parseRes['luminance'],
+                    ct=parseRes['ct'],
+                    ddt=ddt,
+                    drt=drt
                 ))
-        # 控制某个灯具
+        # 控制单个灯具
         elif regAddr in PANEL1_LAMP:
-            parseRes = self.parseRegister(bytes.fromhex(regData), 'lamps')
-            #
+            try:
+                lamp: Lamp = self._lamps[int(regAddr, 16)-210]
+                parseRes = self.parseRegister(bytes.fromhex(regData), 'lamps')
+                frames.append(lamp.generateWriteFrame(
+                    switch=parseRes['switch'],
+                    luminance=parseRes['luminance'],
+                    ct=parseRes['ct'],
+                    drt=100
+                ))
+            except IndexError:
+                print("This lamp isn't in control list.")
 
         return frames
     
@@ -510,7 +536,6 @@ class Panel1(Panel):
         # 任意输入校验码
         data += '00 00'
         return MyFrame(head, cmd, data)
-
 
 if __name__ == '__main__':
     p1 = Panel1(999)

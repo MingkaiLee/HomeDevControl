@@ -119,19 +119,26 @@ class FrameParse:
     - getData: 返回数据域功能码之后的内容
     """
     def __init__(self) -> None:
-        self._frame = None
-        self._frameStr = None
-        self._recogniton_info = None
+        self._frame: bytes = None
+        self._frameStr: str = None
 
     def _parse(self) -> None:
+        # 帧头
         self._head = self._frameStr[:2]
+        # 长度域
         self._length = self._frameStr[2:4]
+        # 命令域
         self._cmd = self._frameStr[4:8]
+        # 数据域
         self._data = self._frameStr[8:-2]
+        # 异或和
         self._xor = self._frameStr[-2:]
         # 数据域内容具体解析
+        # 设备地址
         self._data_addr = self._data[:4]
+        # 功能码
         self._data_fc = self._data[4:8]
+        # 数据域内容
         self._data_others = self._data[8:]
 
     def parse(self, frame: bytes) -> None:
@@ -146,6 +153,10 @@ class FrameParse:
         self._parse()
     
     def show(self) -> None:
+        """
+        ### 展示解析结果
+        调试代码与测试设备时使用
+        """
         res = f'帧  头: {self._head}\n长度域: {self._length}\n命令域: {self._cmd}\n数据域: {self._data}\n异或和: {self._xor}\n地  址: {self._data_addr}\n功能码: {self._data_fc}\n数  据: {self._data_others}'
         print(res)
 
@@ -154,20 +165,6 @@ class FrameParse:
         ### 返回数据域功能码之后的内容
         """
         return self._data_others
-    
-    @property
-    def recognition_info(self) -> dict:
-        """
-        ### 显示目前的帧识别信息
-        """
-        return self._recogniton_info
-    
-    def change_recognition_info(self, info):
-        """
-        ### 改变帧解析字典的内容
-        帧解析机制: 创建一个字典, 字典的键为设备的类型代号, 为字符串类型, 值为字符串列表。
-        原则上该字典的生成信息该由面板给出
-        """
 
     def __str__(self) -> str:
         res = f'帧  头: {self._head}\n长度域: {self._length}\n命令域: {self._cmd}\n数据域: {self._data}\n异或和: {self._xor}'
