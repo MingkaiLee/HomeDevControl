@@ -76,6 +76,11 @@ class MyFrame:
         # 重新生成整串
         self.__content = self._toHexStr()
     
+    # 获取只读的数据域值
+    @property
+    def Data(self) -> str:
+        return self.__data
+    
     def reData(self, data: str) -> None:
         """
         ### 修改数据域内容

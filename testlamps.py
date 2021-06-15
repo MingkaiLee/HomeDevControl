@@ -85,7 +85,7 @@ async def main(ser:serial.Serial, lamps:list):
     print(f'total_recvtime:{total_recvtime:.2f}')
 
 if __name__ == '__main__':
-    port_name = 'COM3'
+    port_name = 'COM5'
     ser = serial.Serial(port_name)
     if not ser.isOpen():
         ser.open()

@@ -59,6 +59,8 @@ class Controller(asyncio.Protocol):
         # for frame in frames:
 
         for frame in frames:
+            self.parser.parse(frame.toBytes())
+            self.parser.show()
             self.transport.serial.write(frame.toBytes())
         print("Writing task done.")
         """

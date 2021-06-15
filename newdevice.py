@@ -108,9 +108,9 @@ class Device:
         #### Returns:
         - res: 'xxxxxxxx'式表一字节寄存器内容的字符串
         """
-        res = hex(val)[2:]
-        while len(res) < 8:
-            res = '0' + res
+        # 将输入转为二进制字符串
+        res = bin(val)[2:]
+        res = '0' * (8-len(res)) + res
         return res
     
     def getDevAddr(self) -> str:
@@ -235,6 +235,7 @@ class Lamp(Device):
     
     def generateWriteFrame(self, switch=None, luminance=None, ct=None, vt=0, ddt=0, drt=0) -> MyFrame:
         """
+        注: 旧版接口不推荐使用. 21.06.15 by Li Mingkai.
         ### 生成修改灯具状态的命令帧
         注: 预期在值为None时进行保持, 还未实现, 目前需填入所有参数
         #### Parameters:
@@ -247,12 +248,25 @@ class Lamp(Device):
         #### Returns:
         - _lastWrite: 最新发送的修改命令
         """
-        head = 'fe'
-        cmd = '24 5f'
-        data = super().getDevAddr() + ' 01 10 00 00 00 06 0c'
-        for item in [switch, luminance, ct, vt, ddt, drt]:
-            data += ' ' + super().getWordStr(item)
-        self._lastWrite = MyFrame(head, cmd, data)
+        args = [switch, luminance, ct, vt, ddt, drt]
+        if self._lastWrite is not None:
+            data = self._lastWrite.Data.hex(' ')
+            data_new = data[:11]
+            for i in range(6):
+                if args[i] is not None:
+                    # 非none表示需要修改的量
+                    data_new += ' ' + super().getWordStr(args[i])
+                else:
+                    # none则使用上次调用的量
+                    cursor = len(data_new)
+                    data_new += data[cursor:cursor+6]
+        else:
+            head = 'fe'
+            cmd = '24 5f'
+            data = super().getDevAddr() + ' 01 10 00 00 00 06 0c'
+            for item in args:
+                data += ' ' + super().getWordStr(item)
+            self._lastWrite = MyFrame(head, cmd, data)
         return self._lastWrite
     
 class Curtain(Device):
@@ -428,8 +442,10 @@ class Panel1(Panel):
         - lamps: 灯具类设备的修改
         """
         # 获取寄存器的高八位和低八位
-        reg_hi = super().getRegStr(regData[0])
-        reg_lo = super().getRegStr(regData[1])
+        reg_hi: str = super().getRegStr(regData[0])
+        reg_lo: str = super().getRegStr(regData[1])
+        print(f'寄存器高八位的值:{reg_hi}')
+        print(f'寄存器低八位的值:{reg_lo}')
 
         # 返回结果, 字典形式, 因设备而异
         res = dict()

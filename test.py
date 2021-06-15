@@ -41,22 +41,15 @@ port_name = 'COM5'
 ser = serial.Serial(port_name, timeout=3)
 if not ser.isOpen():
     ser.open()
+# 创建帧解析类
+# 创建传感器对象
 s = Sensor(992)
 # 帧功能: 获取传感器的所有数据
 frame = s.generateCallFrame()
 print(frame)
 ser.write(frame.toBytes())
-
-
-# %%
-if ser.isOpen() == False:
-    ser.open()
-frame = bytes.fromhex('fe 01 21 2b 1e 15')
-# ser.write(b'\xfe\x01\x21\x2b\x1e\x15')
-ser.write(frame)
-res = ser.read(7)
+res = ser.read(22)
 print(res)
-ser.close()
 # %%
 # 传感器控制测试
 import serial
