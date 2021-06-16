@@ -11,9 +11,11 @@ for port in res:
 
 # %%
 # 激活面板
+import os
 import sys
 import serial
-sys.path.append('D:\house app\物联网\lmk\IoTLab')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(BASE_DIR)
 from myframe import MyFrame, FrameParse
 from newdevice import Panel1
 
@@ -34,6 +36,7 @@ ser.close()
 import sys
 import serial
 sys.path.append('D:\house app\物联网\lmk\IoTLab')
+
 from myframe import MyFrame, FrameParse
 from newdevice import Sensor
 
