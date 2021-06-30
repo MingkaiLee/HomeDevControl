@@ -69,7 +69,7 @@ class FrameParse:
 
         return frame
     
-    def parse(self, val: bytes=None):
+    def parse_show(self, val: bytes=None):
         """
         分割数据帧, 并在命令行打印关键信息, 在调试时使用
 
@@ -108,4 +108,4 @@ if __name__ == '__main__':
     parser = FrameParse()
     res = parser.construct('245f6700010300000003')
     print(type(parser.frame))
-    parser.parse()
+    parser.parse_show()
