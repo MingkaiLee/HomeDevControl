@@ -101,7 +101,61 @@ class FrameParse:
              self._frameStr[16:-2]])
         print(table)
         return table
+    
+    def judge(self, val: str) -> int:
+        """
+        检验数据帧是否合法, 根据帧头及异或校验和判断
 
+        Parameters:
+        - val: 自上位机读到的数据帧, 转为十六进制字符串
+
+        Returns:
+        - res: 合法为0, 帧头出错为1, 异或校验和出错为2
+        """
+        if val[:2] != self.head:
+            return 1
+        if val[-2:] != self._xorStr(val[2:-2]):
+            return 2
+        return 0
+
+    def partition(self, val: bytes) -> tuple:
+        """
+        对正确的数据帧进行分割, 并返回分割结果
+
+        Parameters:
+        - val: 自上位机读到的数据帧
+
+        Returns:
+        - res: 三元组, 第一个元素为设备地址, 第二个元素为
+
+        Details:
+        - 当合法时, 除数据域之外的信息都无效, 针对数据域
+        """
+        
+
+    def parse(self, val: bytes) -> tuple:
+        """
+        检验数据帧是否合法, 若合法则将其分割并返回, 若非法则将其输出
+
+        Parameters:
+        - val: 自上位机读到的数据帧
+
+        Returns:
+        - res: 二元组, 第一个元素为合法符, 第二个元素为输出结果
+        """
+        val_str = val.hex()
+        flag = self.judge(val_str)
+        if flag == 0:
+            res = (flag, self.partition(val_str))
+        else:
+            res = (flag, val)
+        return res
+
+    def recover(self, val: bytes):
+        """
+        试图将非法的数据帧信息恢复, 计划主要用于恢复自面板发出的控制命令
+        """
+        pass
 
 # 功能测试
 if __name__ == '__main__':

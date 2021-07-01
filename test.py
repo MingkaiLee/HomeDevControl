@@ -286,4 +286,8 @@ fp.parse(res)
 # 展示解析结果
 fp.show()
 # 关闭串口
-ser.close()
+# %%
+# 21.06.30测试开发代码
+import numpy as np
+data = np.array([bytes.fromhex('00 00')] * 3, dtype=bytes)
+# %%

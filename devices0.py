@@ -284,7 +284,9 @@ class Panel(Device):
                         self._lamps.append(Lamp(addr))
     
     def recv_data(self, frame: bytes):
-        
+        """
+        面板接收到数据后修改相应寄存器中的值
+        """
         pass
         
 if __name__ == '__main__':
