@@ -287,7 +287,15 @@ fp.parse(res)
 fp.show()
 # 关闭串口
 # %%
-# 21.06.30测试开发代码
-import numpy as np
-data = np.array([bytes.fromhex('00 00')] * 3, dtype=bytes)
+# 21.07.12测试开发代码
+addr_book = {
+    "sensor": [],
+    "lamps": [],
+    "airs": [],
+    "curtains": [],
+    "purifiers": [],
+    "humidifiers": [],
+    "ventilations": []
+}
+addr_book['sensor'].append(72)
 # %%

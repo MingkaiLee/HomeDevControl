@@ -118,19 +118,21 @@ class FrameParse:
             return 2
         return 0
 
-    def partition(self, val: bytes) -> tuple:
+    def partition(self, val: str) -> tuple:
         """
         对正确的数据帧进行分割, 并返回分割结果
 
         Parameters:
-        - val: 自上位机读到的数据帧
+        - val: 自上位机读到的数据帧的数据域值
 
         Returns:
-        - res: 三元组, 第一个元素为设备地址, 第二个元素为
+        - res: 三元组, 第一个元素为设备地址, 第二个元素为功能码, 第三个元素为功能码后的数据域内容
 
         Details:
         - 当合法时, 除数据域之外的信息都无效, 针对数据域
         """
+        res = (val[:4], val[4:8], val[8:])
+        return res
         
 
     def parse(self, val: bytes) -> tuple:
@@ -142,11 +144,16 @@ class FrameParse:
 
         Returns:
         - res: 二元组, 第一个元素为合法符, 第二个元素为输出结果
+
+        Details:
+        - 解析来自设备回复和面板控制命令的数据帧, 这些帧具有这样的共有特征:
+        - 帧头fe, 命令域44 5f
         """
         val_str = val.hex()
         flag = self.judge(val_str)
         if flag == 0:
-            res = (flag, self.partition(val_str))
+            # 直接传入数据域的内容
+            res = (flag, self.partition(val_str[8:-2]))
         else:
             res = (flag, val)
         return res

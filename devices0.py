@@ -9,6 +9,7 @@ Created by Li Mingkai on 21.06.18
 import sys
 import os
 import numpy as np
+from queue import SimpleQueue
 
 path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(path)
@@ -23,6 +24,8 @@ DEVICE_CLASS = {"sensor",
                 "humidifier", 
                 "ventilation", 
                 "lamp"}
+
+# 本通信协议中面板寄存器功能分组
 
 # 定义所有设备的接口
 class Device:
@@ -204,7 +207,9 @@ class Panel(Device):
         super().__init__(addr)
         self._data = [self.getReg(0)] * 433
         # 每个面板都控制一个帧解析器来生成或解析数据帧
-        self.frame_parse = frame_parse
+        self.frame_parse: FrameParse = frame_parse
+        # 面板会拥有一个简易队列来存储出错的数据帧
+        self.error_queue = SimpleQueue()
         # 面板下的设备
         # 传感器
         self._sensor = None
@@ -220,6 +225,21 @@ class Panel(Device):
         self._humidifiers = []
         # 新风机
         self._ventilations = []
+
+        # 设备通讯录, 存放设备地址的字典
+        self.addr_book: dict = {
+            "panel": [self._addr],
+            "sensor": [],
+            "lamp": [],
+            "air": [],
+            "curtain": [],
+            "purifier": [],
+            "humidifier": [],
+            "ventilation": []
+        }
+
+        # 创建面板中的寄存器变量列表, 共433个寄存器
+        self._panel_regs: list = [bytes.fromhex('00 00')] * 433
     
     @property
     def devices(self) -> dict:
@@ -234,7 +254,7 @@ class Panel(Device):
     
     def add_dev(self, **kargs):
         """
-        向面板中添加可控设备, 可一次性添加任意数量的设备, 注意输入范式
+        向面板中添加可控设备, 可一次性添加任意数量的设备, 注意输入范式, 同时会维护设备通讯录
         
         Details:
         - 可用关键字及含义:
@@ -263,31 +283,127 @@ class Panel(Device):
             if key == 'sensor':
                 if type(val) is int:
                     self._sensor = Sensor(val)
+                    self.addr_book['sensor'] = [val]
                 else:
                     raise ValueError("Wrong value. Only one sensor allowed.")
             elif key == 'air':
-                pass
+                if type(val) is int:
+                    self._airs.append(Lamp(val))
+                    self.addr_book['lamp'].append(val)
+                else:
+                    for addr in val:
+                        self._airs.append(Lamp(addr))
+                        self.addr_book['lamp'].append(addr)
             elif key == 'purifier':
-                pass
+                if type(val) is int:
+                    self._purifiers.append(Lamp(val))
+                    self.addr_book['purifier'].append(val)
+                else:
+                    for addr in val:
+                        self._purifiers.append(Lamp(addr))
+                        self.addr_book['purifier'].append(addr)
             elif key == 'curtain':
-                pass
+                if type(val) is int:
+                    self._curtains.append(Lamp(val))
+                    self.addr_book['curtain'].append(val)
+                else:
+                    for addr in val:
+                        self._curtains.append(Lamp(addr))
+                        self.addr_book['curtain'].append(addr)
             elif key == 'humidifier':
-                pass
+                if type(val) is int:
+                    self._humidifiers.append(Lamp(val))
+                    self.addr_book['humidifier'].append(val)
+                else:
+                    for addr in val:
+                        self._humidifiers.append(Lamp(addr))
+                        self.addr_book['humidifier'].append(addr)
             elif key == 'ventilation':
-                pass
+                if type(val) is int:
+                    self._ventilations.append(Lamp(val))
+                    self.addr_book['ventilation'].append(val)
+                else:
+                    for addr in val:
+                        self._ventilations.append(Lamp(addr))
+                        self.addr_book['ventilation'].append(addr)
             # 添加灯具, 创建实例对象加入列表
-            else:
+            elif key == 'lamp':
                 if type(val) is int:
                     self._lamps.append(Lamp(val))
+                    self.addr_book['lamps'].append(val)
                 else:
                     for addr in val:
                         self._lamps.append(Lamp(addr))
+                        self.addr_book['lamps'].append(addr)
+            else:
+                raise ValueError("Unexpected input arguments. Please check your inputs.")
     
-    def recv_data(self, frame: bytes):
+    def recv_data(self, frame: bytes) -> bytes:
         """
         面板接收到数据后修改相应寄存器中的值
+
+        Parameters:
+        - frame: 接收到的设备传递给上位机的数据帧
+
+        Returns:
+        - res: 响应该数据帧的命令帧
+
+        Details:
+        1. 第一步, 判断传来的数据帧是否合法, 非法则终止并压入一个错误处理队列中
+        2. 第二步, 判断合法的数据帧来源于何种设备
+        3. 第三步, 针对特定的设备作出对应响应, 主要处理来自面板的数据
         """
-        pass
+        # 解析数据帧并得到结果
+        parse_res = self.frame_parse.parse(frame)
+        # step1, 判断数据帧合法性
+        if parse_res[0] != 0:
+            # 将非法的帧压入队列
+            self.error_queue.put(frame)
+        # step2, 判断合法数据帧的设备类型
+        src_addr = int(parse_res[1][0], 16)
+        type_name: str = None
+        for key, val in self.addr_book.items():
+            if src_addr in val:
+                type_name = key
+                break
+        # step3, 针对特定的设备作出响应
+        if type_name == 'panel':
+            # 来自面板的命令功能码均为46, 只修改单个寄存器的内容, 2字节
+            reg_addr = int(parse_res[1][2][:4], 16)
+            reg_content = parse_res[1][2][4:8]
+            self._panel_regs[reg_addr] = bytes.fromhex(reg_content)
+            return self._dev_control_frame(reg_addr, reg_content)
+
+    
+    def _dev_control_frame(self, addr: int, content: str) -> bytes:
+        """
+        解析面板发送的数据域的数据并返回响应的数据帧
+
+        Parameters:
+        - addr: 数据帧中面板寄存器的地址
+        - content: 数据帧中面板寄存器的内容
+
+        Returns:
+        - 对应设备发出的数据帧
+        """
+        # 首页大按钮的修改
+        if addr == 0:
+            pass
+        elif addr ==1:
+            pass
+        elif addr == 2:
+            pass
+        elif addr == 3:
+            pass
+        elif addr == 4:
+            pass
+        # 全部灯具的修改
+        elif addr == 209:
+            pass
+        # 单个灯具的修改
+        elif addr in range(210, 274):
+            pass
+            
         
 if __name__ == '__main__':
     pass
