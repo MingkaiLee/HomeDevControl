@@ -171,8 +171,9 @@ sys.path.append('D:\house app\物联网\lmk\IoTLab\myframe.py')
 from myframe import MyFrame
 # 获取灯具状态信息
 frame = MyFrame('fe', '24 5f', '0b 00 01 03 00 00 00 03')
-ser.write(bytes.fromhex(frame.toBytes()))
+ser.write(frame.toBytes())
 res = ser.read(16)
+print(res)
 ser.close()
 # %%
 def getAddrStr(addr: int) -> str:

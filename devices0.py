@@ -8,8 +8,8 @@ Created by Li Mingkai on 21.06.18
 """ 
 import sys
 import os
-import numpy as np
 from queue import SimpleQueue
+import serial
 
 path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(path)
@@ -114,6 +114,21 @@ class Device:
                 res = f"{x[:2]}{x[-2:]}"
         
         return bytes.fromhex(res)
+    
+    def getBin(self, val: int) -> str:
+        """
+        10进制整数转8位2进制字符串, 输入范围不检验, 默认合法
+
+        Parameters:
+        - val: 10进制数值, 0-255
+
+        Returns:
+        - res: 'xxxxxxxx'式表一字节寄存器内容的字符串
+        """
+        # 将输入转为二进制字符串
+        res = bin(val)[2:]
+        res = '0' * (8-len(res)) + res
+        return res
 
 # 定义传感器设备类
 class Sensor(Device):
@@ -160,9 +175,9 @@ class Lamp(Device):
         content = '245f' + self._addr.hex() + '010300000003'
         return content
     
-    def update_data(self):
+    def update_data(self) -> None:
         """
-        根据返回给的上位机的响应查询的数据帧修改从
+        根据返回给的上位机的响应查询的数据帧修改存储在上位机中的数据
         """
         pass
 
@@ -177,10 +192,19 @@ class Lamp(Device):
         Details:
         - 0号寄存器控制开关, 1号寄存器控制亮度, 2号寄存器控制色温
         - reg只允许输入{0, 1, 2}中的数字, 未引入输入检错及异常处理机制
+        - args可分别输入变化时间, 延迟执行时间, 延迟回复时间, 均为int类型
         """
         # 更改对象中存储的寄存器的值
         self._data[reg] = self.getReg(val)
-        self._data_readable
+
+        # 将十进制的时间参数转为寄存器字符量
+        i = 0
+        while i < len(args):
+            args[i] = self.getReg(args[i])
+            i += 1
+        args = list(args) + ['0000'] * (3-i)
+
+        # 构造结果
         content = '245f' 
         + self._addr.hex()
         + '0110000000060c'
@@ -289,11 +313,11 @@ class Panel(Device):
             elif key == 'air':
                 if type(val) is int:
                     self._airs.append(Lamp(val))
-                    self.addr_book['lamp'].append(val)
+                    self.addr_book['air'].append(val)
                 else:
                     for addr in val:
                         self._airs.append(Lamp(addr))
-                        self.addr_book['lamp'].append(addr)
+                        self.addr_book['air'].append(addr)
             elif key == 'purifier':
                 if type(val) is int:
                     self._purifiers.append(Lamp(val))
@@ -330,15 +354,15 @@ class Panel(Device):
             elif key == 'lamp':
                 if type(val) is int:
                     self._lamps.append(Lamp(val))
-                    self.addr_book['lamps'].append(val)
+                    self.addr_book['lamp'].append(val)
                 else:
                     for addr in val:
                         self._lamps.append(Lamp(addr))
-                        self.addr_book['lamps'].append(addr)
+                        self.addr_book['lamp'].append(addr)
             else:
                 raise ValueError("Unexpected input arguments. Please check your inputs.")
     
-    def recv_data(self, frame: bytes) -> bytes:
+    def recv_data(self, frame: bytes):
         """
         面板接收到数据后修改相应寄存器中的值
 
@@ -359,11 +383,13 @@ class Panel(Device):
         if parse_res[0] != 0:
             # 将非法的帧压入队列
             self.error_queue.put(frame)
+            return 0
         # step2, 判断合法数据帧的设备类型
-        src_addr = int(parse_res[1][0], 16)
+        print(parse_res)
         type_name: str = None
         for key, val in self.addr_book.items():
-            if src_addr in val:
+            print(key, val)
+            if bytes.fromhex(parse_res[1][0]) in val:
                 type_name = key
                 break
         # step3, 针对特定的设备作出响应
@@ -373,6 +399,9 @@ class Panel(Device):
             reg_content = parse_res[1][2][4:8]
             self._panel_regs[reg_addr] = bytes.fromhex(reg_content)
             return self._dev_control_frame(reg_addr, reg_content)
+        else:
+            return 1
+            
 
     
     def _dev_control_frame(self, addr: int, content: str) -> bytes:
@@ -386,6 +415,10 @@ class Panel(Device):
         Returns:
         - 对应设备发出的数据帧
         """
+
+        # 数据帧结果
+        res: bytes = bytes()
+
         # 首页大按钮的修改
         if addr == 0:
             pass
@@ -399,11 +432,83 @@ class Panel(Device):
             pass
         # 全部灯具的修改
         elif addr == 209:
-            pass
+            # 单个灯单位的执行时延
+            exc_interval = 200
+            # 单个灯单位的回复时延
+            res_interval = 100
+            # 单个灯寄存器应修改的值
+            change_info = self._lamp_control(content)
+            for i in range(len(self._lamps)):
+                # 调用灯实例的方法写从命令域到数据域的内容
+                temp_res = self._lamps[i].write_data(change_info[0], change_info[1],
+                 0,
+                 exc_interval*i,
+                 res_interval*i )
+                res = self.frame_parse.construct(temp_res) + res
         # 单个灯具的修改
         elif addr in range(210, 274):
-            pass
-            
+            # 单个灯寄存器应修改的值
+            change_info = self._lamp_control(content)
+            temp_res = self._lamps[addr-210].write_data(change_info[0], change_info[1])
+            res = self.frame_parse.construct(temp_res)
+
+        return res
+
+    def _lamp_control(self, content: str) -> tuple:
+        """
+        根据面板传入的修改灯状态信息的帧内容, 产生除目的地址外的内容
+        (设计考虑到一键控制多个设备的功能, 该应用场景下无需多次计算)
+
+        Parameters:
+        - content: 数据帧中面板寄存器的内容
+
+        Returns:
+        - res: (int, int)自使能信号所允许修改的寄存器及其相应的值
+        """
+
+        # 转为bytes后自动计算其各字节的数值
+        content = bytes.fromhex(content)
+        # 得到从高到低的两个字节各位值的字符串
+        bin_bits = self.getBin(content[0]) + self.getBin(content[1])
+        # 使能信号判断
+        enable = 0
+        for i in range(3):
+            if bin_bits[i] == '1':
+                enable = i
+                break
+        # 得到使能信号后只分析其对应的位
+        if enable == 0:
+            res = int(bin_bits[3], 2)
+        elif enable == 1:
+            res = int(bin_bits[4:9], 2) * 5
+        else:
+            res = int(bin_bits[9:14], 2) * 5
         
+        return (enable, res)
+
+        
+            
+# 测试用代码
 if __name__ == '__main__':
-    pass
+    # 21.07.14测试对灯的集群控制
+    port_name = 'COM5'
+    ser = serial.Serial(port_name, timeout=3)
+    if not ser.isOpen():
+        ser.open()
+
+    # 创建面板
+    parser = FrameParse()
+    p: Panel = Panel(999, parser)
+    # 向面板中添加灯具
+    p.add_dev(lamp=[i for i in range(11, 27)])
+    # 因面板无响应, 构造一个虚拟面板帧测试
+    virtual_frame = parser.construct('44 5f e7 03 01 46 00 d2 8a 50 42 a0')
+    res_frame = p.recv_data(virtual_frame)
+    print(virtual_frame[-1])
+    # 串口命令发送
+    ser.write(res_frame)
+    # 关闭串口
+    ser.close()
+
+    
+    

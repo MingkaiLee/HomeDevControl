@@ -134,7 +134,6 @@ class FrameParse:
         res = (val[:4], val[4:8], val[8:])
         return res
         
-
     def parse(self, val: bytes) -> tuple:
         """
         检验数据帧是否合法, 若合法则将其分割并返回, 若非法则将其输出
