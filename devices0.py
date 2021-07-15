@@ -91,6 +91,9 @@ class Device:
         Parameters:
         - val: 输入的10进制整数
         - desc: default False, 高位在前低位在后, True则低位在前高位在后
+
+        Returns:
+        - res: str or bytes
         """
         x = hex(val)[2:]
         res = None
@@ -165,7 +168,7 @@ class Lamp(Device):
         - addr: 设备地址
         """
         super().__init__(addr)
-        self._data = [self.getReg(0)] * 3
+        self._data = [self.getReg(0), self.getReg(100), self.getReg(100)]
         self._data_readable = {'开关': 0, '亮度': 0, '色温': 0}
     
     def read_data(self) -> str:
@@ -199,21 +202,15 @@ class Lamp(Device):
 
         # 将十进制的时间参数转为寄存器字符量
         i = 0
+        b_args = []
         while i < len(args):
-            args[i] = self.getReg(args[i])
+            b_args.append(self.getReg(args[i]).hex())
             i += 1
-        args = list(args) + ['0000'] * (3-i)
+        b_args = b_args + ['0000'] * (3-i)
 
         # 构造结果
-        content = '245f' 
-        + self._addr.hex()
-        + '0110000000060c'
-        + self._data[0]
-        + self._data[1]
-        + self._data[2]
-        + args[0]
-        + args[1]
-        + args[2]
+        # print(self._addr.hex())
+        content = '245f'+self._addr.hex()+'0110000000060c'+self._data[0].hex()+self._data[1].hex()+self._data[2].hex()+b_args[0]+b_args[1]+b_args[2]
 
         return content
     
@@ -232,8 +229,12 @@ class Panel(Device):
         self._data = [self.getReg(0)] * 433
         # 每个面板都控制一个帧解析器来生成或解析数据帧
         self.frame_parse: FrameParse = frame_parse
+
+        # 面板会拥有一个队列来存储待发送的响应数据帧
+
         # 面板会拥有一个简易队列来存储出错的数据帧
         self.error_queue = SimpleQueue()
+
         # 面板下的设备
         # 传感器
         self._sensor = None
@@ -385,10 +386,8 @@ class Panel(Device):
             self.error_queue.put(frame)
             return 0
         # step2, 判断合法数据帧的设备类型
-        print(parse_res)
         type_name: str = None
         for key, val in self.addr_book.items():
-            print(key, val)
             if bytes.fromhex(parse_res[1][0]) in val:
                 type_name = key
                 break
@@ -404,7 +403,7 @@ class Panel(Device):
             
 
     
-    def _dev_control_frame(self, addr: int, content: str) -> bytes:
+    def _dev_control_frame(self, addr: int, content: str):
         """
         解析面板发送的数据域的数据并返回响应的数据帧
 
@@ -413,7 +412,7 @@ class Panel(Device):
         - content: 数据帧中面板寄存器的内容
 
         Returns:
-        - 对应设备发出的数据帧
+        - res:
         """
 
         # 数据帧结果
@@ -432,24 +431,37 @@ class Panel(Device):
             pass
         # 全部灯具的修改
         elif addr == 209:
+            # 当灯数量较少时采用以下方式能够快速控制
+            """
             # 单个灯单位的执行时延
-            exc_interval = 200
+            exc_interval = 1
             # 单个灯单位的回复时延
-            res_interval = 100
+            res_interval = 20
             # 单个灯寄存器应修改的值
             change_info = self._lamp_control(content)
             for i in range(len(self._lamps)):
                 # 调用灯实例的方法写从命令域到数据域的内容
                 temp_res = self._lamps[i].write_data(change_info[0], change_info[1],
-                 0,
+                 1,
                  exc_interval*i,
                  res_interval*i )
                 res = self.frame_parse.construct(temp_res) + res
+            """
+            # 灯的数量较多时采用以下方式保证感官上的同步
+            # 单个灯单位的执行时延(考虑zigbee模块数据帧的发送间隔)
+            exc_interval = 20
+            # 单个灯单位的回复时延
+            res_interval = 20
+
         # 单个灯具的修改
         elif addr in range(210, 274):
-            # 单个灯寄存器应修改的值
+            # 单个灯寄存器应修改的值, 立即执行
             change_info = self._lamp_control(content)
-            temp_res = self._lamps[addr-210].write_data(change_info[0], change_info[1])
+            temp_res = self._lamps[addr-210].write_data(change_info[0], change_info[1], 
+             1, 
+             0,
+             10)
+            print(temp_res)
             res = self.frame_parse.construct(temp_res)
 
         return res
@@ -502,13 +514,18 @@ if __name__ == '__main__':
     # 向面板中添加灯具
     p.add_dev(lamp=[i for i in range(11, 27)])
     # 因面板无响应, 构造一个虚拟面板帧测试
-    virtual_frame = parser.construct('44 5f e7 03 01 46 00 d2 8a 50 42 a0')
+    virtual_frame = parser.construct('445fe703014600d19a5042a0')
     res_frame = p.recv_data(virtual_frame)
-    print(virtual_frame[-1])
+    print(ser)
+    print(res_frame.hex(' '))
+    print(type(res_frame))
     # 串口命令发送
     ser.write(res_frame)
     # 关闭串口
+    res = ser.read(16)
+    print(res.hex('-'))
     ser.close()
+    sys.exit()
 
     
     
