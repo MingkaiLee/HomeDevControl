@@ -302,3 +302,11 @@ addr_book = {
 }
 addr_book['sensor'].append(72)
 # %%
+# 21.07.20二端队列使用方法测试
+from collections import deque
+x = deque()
+x.appendleft(1)
+x.appendleft(2)
+print(x[0])
+print(x[1])
+# %%
