@@ -10,6 +10,7 @@ import sys
 import os
 from queue import SimpleQueue
 import serial
+from collections import deque
 
 path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(path)
@@ -452,6 +453,19 @@ class Panel(Device):
             exc_interval = 20
             # 单个灯单位的回复时延
             res_interval = 20
+            # 单个灯寄存器应修改的值
+            change_info = self._lamp_control(content)
+            # 创建结果二端队列
+            res = deque()
+            for i in range(len(self._lamps)):
+                #调用灯实例的方法写从命令域到数据域的内容
+                temp_res = self._lamps[i].write_data(change_info[0], change_info[1],
+                1,
+                exc_interval*i,
+                res_interval*i)
+                # 将延时大的帧添加到队列的左端
+                res.appendleft(self.frame_parse.construct(temp_res))
+            res = [exc_interval, res]
 
         # 单个灯具的修改
         elif addr in range(210, 274):

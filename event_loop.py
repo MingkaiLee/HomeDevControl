@@ -2,6 +2,7 @@
 # 新版架构的事件循环
 import serial_asyncio
 import asyncio
+import time
 # 导入自定义模块
 import sys
 sys.path.append('D:\house app\物联网\lmk\IoTLab')
@@ -29,7 +30,7 @@ class Controller(asyncio.Protocol):
     def connection_made(self, transport: serial_asyncio.SerialTransport):
         # 自定义串口参数
         # 设置串口读入时延, 无时延时读入的帧会被打散
-        transport.serial.timeout = 0.01
+        transport.serial.timeout = 0.02
         transport.serial.rts = False
         self.transport = transport
         
@@ -46,8 +47,15 @@ class Controller(asyncio.Protocol):
     def data_received(self, data):
         print('data received', data.hex(' '))
         res = self.panel.recv_data(data)
-        print('data sent', res.hex(' '))
-        self.transport.serial.write(res)
+        # print('data sent', res.hex(' '))
+        if type(res) != list:
+            self.transport.serial.write(res)
+        else:
+            sleep_time = (res[0]-1) / 1000
+            for i in range(len(res[1])):
+                self.transport.serial.write(res[1][i])
+                time.sleep(sleep_time)
+
 
     def connection_lost(self, exc):
         print('port closed')
