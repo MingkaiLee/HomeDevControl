@@ -449,10 +449,12 @@ class Panel(Device):
                 res = self.frame_parse.construct(temp_res) + res
             """
             # 灯的数量较多时采用以下方式保证感官上的同步
+            # 整体执行延迟的时间
+            exc_delay = 400
             # 单个灯单位的执行时延(考虑zigbee模块数据帧的发送间隔)
-            exc_interval = 20
-            # 单个灯单位的回复时延
-            res_interval = 20
+            delay_interval = int(400/len(self._lamps))
+            # 整体回复延迟的时间
+            res_delay = 2000
             # 单个灯寄存器应修改的值
             change_info = self._lamp_control(content)
             # 创建结果二端队列
@@ -461,11 +463,13 @@ class Panel(Device):
                 #调用灯实例的方法写从命令域到数据域的内容
                 temp_res = self._lamps[i].write_data(change_info[0], change_info[1],
                 1,
-                exc_interval*i,
-                res_interval*i)
+                exc_delay,
+                res_delay)
                 # 将延时大的帧添加到队列的左端
-                res.appendleft(self.frame_parse.construct(temp_res))
-            res = [exc_interval, res]
+                res.append(self.frame_parse.construct(temp_res))
+                exc_delay = exc_delay - delay_interval
+                res_delay = res_delay + delay_interval
+            res = [delay_interval, res]
 
         # 单个灯具的修改
         elif addr in range(210, 274):

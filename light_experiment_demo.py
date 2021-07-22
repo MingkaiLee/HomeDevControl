@@ -6,6 +6,7 @@ import serial_asyncio
 
 
 class Output(asyncio.Protocol):
+    # 灯地址列表
     point_list = [46]
 
     def __init__(self):
@@ -19,12 +20,17 @@ class Output(asyncio.Protocol):
         self.transport = transport
 
     def data_received(self, data):
+        """
+        通过合理的操作拼接数据帧
+        """
+        # 收到新内容后添加到内容列表
         self._data.extend(data)
         k = 0
         for j in range(0, len(self._data) - 1):
             if j < k:
                 continue
             k = j
+            # 数据帧的帧头不为fe则j+1并进入下一轮循环
             if self._data[j] != 0xFE:
                 continue
             if len(self._data) - j >= self._data[j + 1] + 5:
@@ -53,12 +59,14 @@ class Output(asyncio.Protocol):
         delay_interval = int(600 / 16)
         for addr in self.point_list:
             query_data = [0xfe, 0, 0x24, 0x5f]
+            # 回复帧的命令域
             cmd = 0x10
             query_data.extend(struct.pack('<H', addr))
             query_data.extend(struct.pack('BB', 1, cmd))
             query_data.extend(struct.pack('>HH', 0, 6))  # start addr, register quatity
             query_data.extend(struct.pack('B', 6 * 2))
             query_data.extend(struct.pack('>HHHHHH', onoff, brightness, ct, transition, delay_execute, delay_reply))
+            # 填入长度域的值, 至此query_data缺少异或校验和
             query_data[1] = len(query_data) - 4
             query_list.append(query_data)
             delay_execute = delay_execute - delay_interval
@@ -67,10 +75,12 @@ class Output(asyncio.Protocol):
                 delay_execute = 0
         # process query
         for query in query_list:
+            # 计算地址的值
             key = query[4] + (query[5] << 8)
             y = 0
             for x in query[1:]:
                 y = y ^ x
+            # 加上异或校验和
             query.append(y)
             self.transport.write(query)
             self.reply_data[key] = time.time()

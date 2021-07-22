@@ -310,3 +310,43 @@ x.appendleft(2)
 print(x[0])
 print(x[1])
 # %%
+import struct
+print(struct.pack('<H', 999))
+print(struct.pack('BB', 1, 0x10))
+# %%
+x = bytes([254, 10, 68, 95, 231, 3, 1, 70, 0, 209, 152, 80, 179, 192, 216])
+
+# %%
+# 测试闭包和函数文档
+def func_a():
+    """
+    对闭包的测试
+    """
+    x = 5
+    def func_b():
+        print(x)
+    return func_b
+b = func_a()
+b()
+print(func_a.__doc__)
+# %%
+# 测试装饰器与wraps装饰器
+import functools
+def decorator(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kargs):
+        """
+        doc of wrapper
+        """
+        print('123')
+        return func(*args, **kargs)
+    return wrapper
+
+@decorator
+def say_hello():
+    """doc of say hello"""
+    print("hello")
+
+print(say_hello.__name__)
+print(say_hello.__doc__)
+# %%

@@ -12,6 +12,11 @@ from frameparse import FrameParse
 
 # asyncio.Protocol需要覆写
 class Controller(asyncio.Protocol):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._data = []
+
     def create_panel(self) -> object:
         # 创建帧解析器对象
         parser = FrameParse()
@@ -30,7 +35,7 @@ class Controller(asyncio.Protocol):
     def connection_made(self, transport: serial_asyncio.SerialTransport):
         # 自定义串口参数
         # 设置串口读入时延, 无时延时读入的帧会被打散
-        transport.serial.timeout = 0.02
+        # transport.serial.timeout = 0.02
         transport.serial.rts = False
         self.transport = transport
         
